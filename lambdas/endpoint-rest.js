@@ -28,7 +28,7 @@ export const handler = async (event) => {
             case 'POST':
                 body = await dynamo.put({
                     TableName: process.env.db_name,
-                    Item:event.item
+                    Item:{...event.item, user_id: user.Username}
                 });
                 break;
             case 'DELETE':
@@ -36,7 +36,7 @@ export const handler = async (event) => {
                     TableName: process.env.db_name,
                     Key: {
                         'endpoint_id': event.item.endpoint_id,
-                        'user_id': event.item.user_id
+                        'user_id': user.Username
                     }
                 });
                 break;
@@ -45,7 +45,7 @@ export const handler = async (event) => {
                     TableName: process.env.db_name,
                     Key: {
                         'endpoint_id': event.item.endpoint_id,
-                        'user_id': event.item.user_id
+                        'user_id': user.Username
                     },
                     UpdateExpression: 'SET #endpoint :newURL',
                     ExpressionAttributeNames: {
