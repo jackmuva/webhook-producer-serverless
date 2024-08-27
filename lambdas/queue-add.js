@@ -9,19 +9,44 @@ const dynamo = DynamoDBDocument.from(new DynamoDB());
 const sqs = new SQSClient({ region: process.env.region });
 
 export const handler = async (event) => {
-    const user = await getUser(event.headers.accessToken);
+    let token;
+
+    if (event.headers && event.headers.accesstoken && event.headers.accesstoken != "") {
+        token = event.headers.accesstoken;
+    }else if (event.multiValueHeaders && event.multiValueHeaders.accesstoken && event.multiValueHeaders.accesstoken != "") {
+        token = event.multiValueHeaders.accesstoken;
+    }
+    const user = await getUser(token);
     const endpointObjects = await getAllUserEndpoints(user.Username);
 
-    const responses = [];
-
-    for (const endpointObject of endpointObjects) {
-        const res = await sendMessage(endpointObject.endpoint, endpointObject.user_id,
-            endpointObject.key_location, endpointObject.endpoint_id,
-            event.message_id, event.message);
-        responses.push(res);
+    let statusCode = 200;
+    let body;
+    const messageObj = JSON.parse(event.body);
+    const items = [];
+    try{
+        for (const endpointObject of endpointObjects) {
+            const res = await sendMessage(endpointObject.endpoint, endpointObject.user_id,
+                endpointObject.key_location, endpointObject.endpoint_id,
+                messageObj.message_id, messageObj.message);
+            items.push(res);
+        }
+        body = items;
+    } catch (err) {
+        statusCode = '400';
+        body = err.message;
+    } finally {
+        body = JSON.stringify(body);
     }
-
-    return responses;
+    return {
+        statusCode,
+        body,
+        headers: {
+            "Access-Control-Allow-Headers" : "Content-Type",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "OPTIONS,POST,GET",
+            "Content-Type": "application/json"
+        }
+    };
 };
 
 async function getAllUserEndpoints(userId){
@@ -63,15 +88,13 @@ async function sendMessage(endpoint, user_id, key_location, endpoint_id, message
             },
         },
         MessageBody: message,
-        MessageDeduplicationId:  endpoint_id,  // Required for FIFO queues
-        MessageGroupId:  message_id,  // Required for FIFO queues
+        MessageDeduplicationId:  message_id,  // Required for FIFO queues
+        MessageGroupId:  endpoint_id,  // Required for FIFO queues
         QueueUrl: process.env.queueUrl,
     };
 
     const command = new SendMessageCommand(params);
     const response = await sqs.send(command);
-
-    console.log(response);
 
     return response;
 };

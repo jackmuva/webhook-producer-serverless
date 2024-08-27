@@ -9,11 +9,7 @@ export const handler = async (event) => {
 
     let body;
     let statusCode = '200';
-
-    let dbParam= {
-        TableName: process.env.db_name,
-        Item:event.item
-    }
+    const endpointObj = JSON.parse(event.body);
 
     let token;
 
@@ -25,7 +21,6 @@ export const handler = async (event) => {
 
     const user = await getUser(token);
 
-
     try {
         switch (event.httpMethod) {
             case 'GET':
@@ -34,14 +29,14 @@ export const handler = async (event) => {
             case 'POST':
                 body = await dynamo.put({
                     TableName: process.env.db_name,
-                    Item:{...event.item, user_id: user.Username}
+                    Item:{...endpointObj, user_id: user.Username}
                 });
                 break;
             case 'DELETE':
                 body = await dynamo.delete({
                     TableName: process.env.db_name,
                     Key: {
-                        'endpoint_id': event.item.endpoint_id,
+                        'endpoint_id': endpointObj.endpoint_id,
                         'user_id': user.Username
                     }
                 });
@@ -50,7 +45,7 @@ export const handler = async (event) => {
                 body = await dynamo.update({
                     TableName: process.env.db_name,
                     Key: {
-                        'endpoint_id': event.item.endpoint_id,
+                        'endpoint_id': endpointObj.endpoint_id,
                         'user_id': user.Username
                     },
                     UpdateExpression: 'SET #endpoint :newURL',
@@ -58,7 +53,7 @@ export const handler = async (event) => {
                         '#endpoint': 'endpoint',
                     },
                     ExpressionAttributeValues: {
-                        ':newURL': event.item.endpoint,
+                        ':newURL': endpointObj.endpoint,
                     },
                 });
                 break;
