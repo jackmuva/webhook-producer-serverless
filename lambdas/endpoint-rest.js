@@ -9,16 +9,22 @@ export const handler = async (event) => {
 
     let body;
     let statusCode = '200';
-    const headers = {
-        'Content-Type': 'application/json',
-    };
 
     let dbParam= {
         TableName: process.env.db_name,
         Item:event.item
     }
 
-    const user = await getUser(event.headers.accessToken);
+    let token;
+
+    if (event.headers && event.headers.accesstoken && event.headers.accesstoken != "") {
+        token = event.headers.accesstoken;
+    }else if (event.multiValueHeaders && event.multiValueHeaders.accesstoken && event.multiValueHeaders.accesstoken != "") {
+        token = event.multiValueHeaders.accesstoken;
+    }
+
+    const user = await getUser(token);
+
 
     try {
         switch (event.httpMethod) {
@@ -69,7 +75,12 @@ export const handler = async (event) => {
     return {
         statusCode,
         body,
-        headers,
+        headers: {
+            "Access-Control-Allow-Headers" : "Content-Type",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "OPTIONS,POST,GET",
+            "Content-Type": "application/json"
+        }
     };
 };
 
@@ -83,7 +94,7 @@ async function getAllUserEndpoints(userId){
     const response = await dynamo.scan(params);
 
     return response.Items;
-}
+};
 
 async function getUser(accessToken) {
     const input = {
